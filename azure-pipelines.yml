@@ -1,0 +1,37 @@
+# Code originally from https://github.com/ofek/ofek.github.io/blob/site/azure-pipelines.yml
+
+trigger:
+- site
+
+pr:
+- site
+
+jobs:
+- job: 'Build'
+  pool:
+    vmImage: 'ubuntu-latest'
+  steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.7'
+    displayName: 'Use Python 3.7'
+  - script: |
+      pip install pelican
+    displayName: 'Install dependencies'
+  - script: pelican content
+    displayName: 'Build Pelican Content'
+  - publish: $(System.DefaultWorkingDirectory)/output
+    artifact: site
+- job: 'Publish'
+  dependsOn: 'Build'
+  condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+  pool:
+    vmImage: 'ubuntu-latest'
+  steps:
+  - download: current
+    artifact: site
+  - script: ./scripts/publish-site.sh
+    env:
+      GITHUB_TOKEN: $(GITHUB_TOKEN)
+      SITE_DIR: $(Pipeline.Workspace)/output
+    displayName: 'Push to master'
